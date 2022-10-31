@@ -45,45 +45,45 @@ contract InsuranceCompany{
     }
     mapping(uint => paycheck) public paycheck_by_No;
     modifier onlyInsured(uint _index) {
-        require(msg.sender == Car_by_No[_index].Insured, "Only Insured can access this");
+        require(msg.sender == Car_by_No[_index].Insured);
         _;
     }
     modifier notInsured(uint _index) {
-        require(msg.sender != Car_by_No[_index].Insured, "Only Owner can access this");
+        require(msg.sender != Car_by_No[_index].Insured);
         _;
     }
     modifier OnlyWhilefreePolicies(uint _index){
         
-        require(Car_by_No[_index].freePolicies == true, "Car is curpaycheckly Occupied.");
+        require(Car_by_No[_index].freePolicies == true);
         _;
     }
     modifier enoughpaycheck(uint _index) {
-        require(msg.value >= uint(Car_by_No[_index].paycheck_per_month), "Not enough Ether in your wallet");
+        require(msg.value >= uint(Car_by_No[_index].paycheck_per_month));
         _;
     }
     modifier enoughAgreementfee(uint _index) {
-        require(msg.value >= uint(uint(Car_by_No[_index].paycheck_per_month) + uint(Car_by_No[_index].securityDeposit)), "Not enough Ether in your wallet");
+        require(msg.value >= uint(uint(Car_by_No[_index].paycheck_per_month) + uint(Car_by_No[_index].securityDeposit)));
         _;
     }
     modifier sameOwner(uint _index) {
-        require(msg.sender == Car_by_No[_index].curpaycheckOwner, "No previous agreement found with you & Insured");
+        require(msg.sender == Car_by_No[_index].curpaycheckOwner);
         _;
     }
     modifier AgreementTimesLeft(uint _index) {
         uint _AgreementNo = Car_by_No[_index].agreementid;
         uint time = InsuranceAgreement_by_No[_AgreementNo].timestamp + InsuranceAgreement_by_No[_AgreementNo].lockInPeriod;
-        require(now < time, "Agreement already Ended");
+        require(now < time);
         _;
     }
     modifier AgreementTimesUp(uint _index) {
         uint _AgreementNo = Car_by_No[_index].agreementid;
         uint time = InsuranceAgreement_by_No[_AgreementNo].timestamp + InsuranceAgreement_by_No[_AgreementNo].lockInPeriod;
-        require(now > time, "Time is left for contract to end");
+        require(now > time);
         _;
     }
     modifier paycheckTimesUp(uint _index) {
         uint time = Car_by_No[_index].timestamp + 30 days;
-        require(now >= time, "Time left to pay paycheck");
+        require(now >= time);
         _;
     }
     function addCar(string memory _Carname, string memory _Caraddress, uint _paycheckcost, uint  _securitydeposit) public {
@@ -119,7 +119,7 @@ contract InsuranceCompany{
     }
     function agreementCompleted(uint _index) public payable onlyInsured(_index) AgreementTimesUp(_index){
     require(msg.sender != address(0));
-    require(Car_by_No[_index].freePolicies == false, "Car is curpaycheckly Occupied.");
+    require(Car_by_No[_index].freePolicies == false);
     Car_by_No[_index].freePolicies = true;
     address payable _Owner = Car_by_No[_index].curpaycheckOwner;
     uint _securitydeposit = Car_by_No[_index].securityDeposit;
