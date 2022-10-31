@@ -1,0 +1,132 @@
+pragma solidity ^0.5.16;
+
+contract InsuranceCompany{
+    address payable Owner;
+    address payable Insured;
+    uint public no_of_cars = 0;
+    uint public no_of_agreement = 0;
+    uint public no_of_car = 0;
+    struct Car{
+        uint Carid;
+        uint agreementid;
+        string Carname;
+        string Caraddress;
+        uint paycheck_per_month;
+        uint securityDeposit;
+        uint timestamp;
+        bool freePolicies;
+        address payable Insured;
+        address payable curpaycheckOwner;
+    }
+    mapping(uint => Car) public Car_by_No;
+    struct InsuranceAgreement{
+        uint Carid;
+        uint agreementid;
+        string Carname;
+        string CarAddresss;
+        uint paycheck_per_month;
+        uint securityDeposit;
+        uint lockInPeriod;
+        uint timestamp;
+        address payable OwnerAddress;
+        address payable InsuredAddress;
+    }
+    mapping(uint => InsuranceAgreement) public InsuranceAgreement_by_No;
+    struct paycheck{
+        uint paycheckno;
+        uint Carid;
+        uint agreementid;
+        string Carname;
+        string CarAddresss;
+        uint paycheck_per_month;
+        uint timestamp;
+        address payable OwnerAddress;
+        address payable InsuredAddress;
+    }
+    mapping(uint => paycheck) public paycheck_by_No;
+    modifier onlyInsured(uint _index) {
+        require(msg.sender == Car_by_No[_index].Insured, "Only Insured can access this");
+        _;
+    }
+    modifier notInsured(uint _index) {
+        require(msg.sender != Car_by_No[_index].Insured, "Only Owner can access this");
+        _;
+    }
+    modifier OnlyWhilefreePolicies(uint _index){
+        
+        require(Car_by_No[_index].freePolicies == true, "Car is curpaycheckly Occupied.");
+        _;
+    }
+    modifier enoughpaycheck(uint _index) {
+        require(msg.value >= uint(Car_by_No[_index].paycheck_per_month), "Not enough Ether in your wallet");
+        _;
+    }
+    modifier enoughAgreementfee(uint _index) {
+        require(msg.value >= uint(uint(Car_by_No[_index].paycheck_per_month) + uint(Car_by_No[_index].securityDeposit)), "Not enough Ether in your wallet");
+        _;
+    }
+    modifier sameOwner(uint _index) {
+        require(msg.sender == Car_by_No[_index].curpaycheckOwner, "No previous agreement found with you & Insured");
+        _;
+    }
+    modifier AgreementTimesLeft(uint _index) {
+        uint _AgreementNo = Car_by_No[_index].agreementid;
+        uint time = InsuranceAgreement_by_No[_AgreementNo].timestamp + InsuranceAgreement_by_No[_AgreementNo].lockInPeriod;
+        require(now < time, "Agreement already Ended");
+        _;
+    }
+    modifier AgreementTimesUp(uint _index) {
+        uint _AgreementNo = Car_by_No[_index].agreementid;
+        uint time = InsuranceAgreement_by_No[_AgreementNo].timestamp + InsuranceAgreement_by_No[_AgreementNo].lockInPeriod;
+        require(now > time, "Time is left for contract to end");
+        _;
+    }
+    modifier paycheckTimesUp(uint _index) {
+        uint time = Car_by_No[_index].timestamp + 30 days;
+        require(now >= time, "Time left to pay paycheck");
+        _;
+    }
+    function addCar(string memory _Carname, string memory _Caraddress, uint _paycheckcost, uint  _securitydeposit) public {
+        require(msg.sender != address(0));
+        no_of_cars ++;
+        bool _vacancy = true;
+        Car_by_No[no_of_cars] = Car(no_of_cars,0,_Carname,_Caraddress, _paycheckcost,_securitydeposit,0,_vacancy, msg.sender, address(0)); 
+        
+    }
+    function signAgreement(uint _index) public payable notInsured(_index) enoughAgreementfee(_index) OnlyWhilefreePolicies(_index) {
+        require(msg.sender != address(0));
+        address payable _Insured = Car_by_No[_index].Insured;
+        uint totalfee = Car_by_No[_index].paycheck_per_month + Car_by_No[_index].securityDeposit;
+        _Insured.transfer(totalfee);
+        no_of_agreement++;
+        Car_by_No[_index].curpaycheckOwner = msg.sender;
+        Car_by_No[_index].freePolicies = false;
+        Car_by_No[_index].timestamp = block.timestamp;
+        Car_by_No[_index].agreementid = no_of_agreement;
+        InsuranceAgreement_by_No[no_of_agreement]=InsuranceAgreement(_index,no_of_agreement,Car_by_No[_index].Carname,Car_by_No[_index].Caraddress,Car_by_No[_index].paycheck_per_month,Car_by_No[_index].securityDeposit,365 days,block.timestamp,msg.sender,_Insured);
+        no_of_cars++;
+        paycheck_by_No[no_of_cars] = paycheck(no_of_cars,_index,no_of_agreement,Car_by_No[_index].Carname,Car_by_No[_index].Caraddress,Car_by_No[_index].paycheck_per_month,now,msg.sender,_Insured);
+    }
+    function paypaycheck(uint _index) public payable sameOwner(_index) paycheckTimesUp(_index) enoughpaycheck(_index){
+        require(msg.sender != address(0));
+        address payable _Insured = Car_by_No[_index].Insured;
+        uint _paycheck = Car_by_No[_index].paycheck_per_month;
+        _Insured.transfer(_paycheck);
+        Car_by_No[_index].curpaycheckOwner = msg.sender;
+        Car_by_No[_index].freePolicies = false;
+        no_of_cars++;
+        paycheck_by_No[no_of_cars] = paycheck(no_of_cars,_index,Car_by_No[_index].agreementid,Car_by_No[_index].Carname,Car_by_No[_index].Caraddress,_paycheck,now,msg.sender,Car_by_No[_index].Insured);
+    }
+    function agreementCompleted(uint _index) public payable onlyInsured(_index) AgreementTimesUp(_index){
+    require(msg.sender != address(0));
+    require(Car_by_No[_index].freePolicies == false, "Car is curpaycheckly Occupied.");
+    Car_by_No[_index].freePolicies = true;
+    address payable _Owner = Car_by_No[_index].curpaycheckOwner;
+    uint _securitydeposit = Car_by_No[_index].securityDeposit;
+    _Owner.transfer(_securitydeposit);
+    }
+    function agreementTerminated(uint _index) public onlyInsured(_index) AgreementTimesLeft(_index){
+        require(msg.sender != address(0));
+        Car_by_No[_index].freePolicies = true;
+    }
+}
